@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import logging,time,re,requests,mimetypes
+import logging,time,re,requests,mimetypes,argparse
 from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -48,18 +48,21 @@ class PlayBooks:
       EC.presence_of_element_located((By.CSS_SELECTOR,'body[class]'))
     )
 
+    result = []
     for i in range(0,100):
       actions = webdriver.ActionChains(self.driver)
       actions.send_keys(u'\ue012')
       actions.perform()
+      document = BeautifulSoup(self.driver.page_source,"lxml")
+      self.title = document.select("body > div > div > table td > span > span")[0].get_text()
+      for img in document.select("img"):
+        #result.append(re.sub('&w=[0-9]*','&w=8659',img.get("src")))
+        result.append(re.sub('&w=[0-9]*','&w=4096',img.get("src")))
       time.sleep(0.1)
 
-    document = BeautifulSoup(self.driver.page_source,"lxml")
-
     self.title = document.select("body > div > div > table td > span > span")[0].get_text()
-
-    for img in document.select("img"):
-      yield re.sub('&w=[0-9]*','',img.get("src"))
+    self.driver.quit()
+    return list(set(result))
 
   def save(self,imgurl):
     n = self.title+"_"+re.search('pg=[^&]*',imgurl).group(0).replace("pg=","")
@@ -67,11 +70,18 @@ class PlayBooks:
     print(imgurl)
     r = requests.get(imgurl)
     ext = mimetypes.guess_extension(r.headers["content-type"], strict=False)
+    if ext == ".jpe" or ext == ".jpeg":
+      ext = ".jpg"
     with Path(n+ext).open("wb") as f:
       f.write(r.content)
 
+parser = argparse.ArgumentParser(description="playbooks")
+parser.add_argument("url")
+args = parser.parse_args()
+
 p = PlayBooks(driver="chrome")
-url = 'https://play.google.com/books/reader?id=j4eoDAAAQBAJ&printsec=frontcover&output=reader&hl=ja'
+#url = 'https://play.google.com/books/reader?id=bRpfBAAAQBAJ&printsec=frontcover&output=reader&hl=ja'
+url = args.url
 for imgurl in p.list(url):
   p.save(imgurl)
 
