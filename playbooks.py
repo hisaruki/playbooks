@@ -56,8 +56,8 @@ class PlayBooks:
       document = BeautifulSoup(self.driver.page_source,"lxml")
       self.title = document.select("body > div > div > table td > span > span")[0].get_text()
       for img in document.select("img"):
-        #result.append(re.sub('&w=[0-9]*','&w=8659',img.get("src")))
-        result.append(re.sub('&w=[0-9]*','&w=4096',img.get("src")))
+        #result.append(re.sub('&w=[0-9]*','&w=4096',img.get("src")))
+        result.append(re.sub('&w=[0-9]*','',img.get("src")))
       time.sleep(0.1)
 
     self.title = document.select("body > div > div > table td > span > span")[0].get_text()
