@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import logging,time,re,requests,mimetypes,argparse
+import logging,time,re,requests,mimetypes,argparse,os
 from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -17,27 +17,28 @@ class PlayBooks:
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
     ch.setFormatter(formatter)
-    fh = logging.FileHandler("playbooks.log",mode="a")
-    fh.setLevel(logging.INFO)
-    fh.setFormatter(formatter)
+    #fh = logging.FileHandler("playbooks.log",mode="a")
+    #fh.setLevel(logging.INFO)
+    #fh.setFormatter(formatter)
     self.logger.addHandler(ch)
-    self.logger.addHandler(fh)
+    #self.logger.addHandler(fh)
 
 
-    self.logger.info("Initialize..")
+    self.logger.debug("Initialize..")
     self.profile = webdriver.FirefoxProfile()
     self.driver = webdriver.PhantomJS(
       desired_capabilities={
         'phantomjs.page.settings.userAgent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36',
       },
       service_args=['--ssl-protocol=tlsv1'],
+      service_log_path=os.path.devnull
     )
     if driver == "chrome":
       self.driver = webdriver.Chrome()
 
 
   def list(self,url):
-    self.logger.info("Getting Images List..")
+    self.logger.debug("Getting Images List..")
     self.driver.get(url)
     WebDriverWait(self.driver, 10).until(
       EC.presence_of_element_located((By.CSS_SELECTOR,'[id=":0.reader"]'))
@@ -51,7 +52,8 @@ class PlayBooks:
     result = []
     for i in range(0,100):
       actions = webdriver.ActionChains(self.driver)
-      actions.send_keys(u'\ue012')
+      key = u'\ue00f'
+      actions.send_keys(key)
       actions.perform()
       document = BeautifulSoup(self.driver.page_source,"lxml")
       self.title = document.select("body > div > div > table td > span > span")[0].get_text()
@@ -67,7 +69,7 @@ class PlayBooks:
   def save(self,imgurl):
     n = self.title+"_"+re.search('pg=[^&]*',imgurl).group(0).replace("pg=","")
     ext = ".jpg"
-    print(imgurl)
+    self.logger.info(imgurl)
     r = requests.get(imgurl)
     ext = mimetypes.guess_extension(r.headers["content-type"], strict=False)
     if ext == ".jpe" or ext == ".jpeg":
@@ -79,7 +81,7 @@ parser = argparse.ArgumentParser(description="playbooks")
 parser.add_argument("url")
 args = parser.parse_args()
 
-p = PlayBooks(driver="chrome")
+p = PlayBooks()
 #url = 'https://play.google.com/books/reader?id=bRpfBAAAQBAJ&printsec=frontcover&output=reader&hl=ja'
 url = args.url
 for imgurl in p.list(url):
