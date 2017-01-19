@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import logging,time,re,requests,mimetypes,argparse,os,urllib
+import logging,time,re,requests,mimetypes,argparse,os,urllib,base64
 from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -23,7 +23,7 @@ class PlayBooks:
     #fh.setFormatter(formatter)
     #self.logger.addHandler(fh)
     self.logger.debug("Initialize..")
-    self.saved = []
+    self.images = {}
 
   def login(self,username,password):
     self.logger.debug("Logging in...")
@@ -58,8 +58,8 @@ class PlayBooks:
         service_log_path=os.path.devnull
       )
 
-  def list(self,url):
-    self.logger.debug("Getting Images List...")
+  def fetch(self,url):
+    self.logger.debug("Getting Images...")
     self.driver.get(url)
     WebDriverWait(self.driver, 10).until(
       EC.presence_of_element_located((By.CSS_SELECTOR,'[id=":0.reader"]'))
@@ -92,14 +92,25 @@ function ImageToBase64(img,mimetype) {
 }
 var images = [];
 document.querySelectorAll("img").forEach(function(img){
+  img.src = img.src.replace(/&w=.*/,"")
   try{
     var b64 = ImageToBase64(img,"image/jpeg");
-    images.push(b64);
+    images.push([img.src,b64,".jpg"]);
+  }catch(e){}
+  try{
+    var b64 = ImageToBase64(img,"image/png");
+    images.push([img.src,b64,".png"]);
   }catch(e){}
 });
 return images;
       ''');
-      print(images)
+      for image in images:
+        url,b64,ext = image[0],image[1],image[2]
+        b64 = re.sub(r'data:[^,]*,','',b64)
+        if len(b64) and not url in self.images:
+          self.images[url] = b64,ext
+        if url in self.images and len(b64) > len(self.images[url][0]):
+          self.images[url] = b64,ext
       self.logger.debug({
         u'\ue00e':"Pageup.",
         u'\ue00f':"Pagedown."
@@ -120,24 +131,17 @@ return images;
       uperr += page(up)
     while downerr < 5:
       downerr += page(down)
-    #self.driver.quit()
+    self.driver.quit()
 
-  def save(self,imgurl):
-    if not imgurl in self.saved:
-      self.saved.append(imgurl)
-      self.logger.debug(imgurl)
-      q = urllib.parse.parse_qs(imgurl)
-      if "pg" in q and q["pg"][0]:
-        pg = q["pg"][0]
-        n = self.title+"/"+pg
-        ext = ".jpg"
-        self.logger.info(imgurl)
-        r = requests.get(imgurl)
-        ext = mimetypes.guess_extension(r.headers["content-type"], strict=False)
-        if ext == ".jpe" or ext == ".jpeg":
-          ext = ".jpg"
-        with Path(n+ext).open("wb") as f:
-          f.write(r.content)
+  def save(self):
+    for url in self.images:
+      b64 = self.images[url][0]
+      ext = self.images[url][1]
+      qs = urllib.parse.parse_qs(url)
+      if "pg" in qs:
+        pg = qs["pg"][0]
+        with (Path(self.title) / Path(pg+ext)).open("wb") as f:
+          f.write(base64.b64decode(b64))
 
 parser = argparse.ArgumentParser(description="playbooks")
 parser.add_argument("url")
@@ -150,6 +154,5 @@ p = PlayBooks()
 p.boot(driver="Chrome")
 if args.login:p.login(args.username,args.password)
 url = args.url
-#for imgurl in p.list(url):
-#  p.save(imgurl)
-p.list(url)
+p.fetch(url)
+p.save()
