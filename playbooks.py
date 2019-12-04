@@ -80,7 +80,7 @@ class PlayBooks:
         u'\ue00f':"Pagedown."
       }[key])
       actions = webdriver.ActionChains(self.driver)
-      actions.send_keys(key)
+      actions.send_keys(Keys.PageDown)
       actions.perform()
       time.sleep(0.1)
       document = BeautifulSoup(self.driver.page_source,"lxml")
